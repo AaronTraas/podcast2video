@@ -24,6 +24,7 @@ frame of the video. 'feedURL' must be the valid URL of a valid podcast RSS feed.
 
 def main():
     """Entry point for the application script"""
+
     # process all the command line parameters
     process_all = False
     feed_url = False

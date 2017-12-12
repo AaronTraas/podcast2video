@@ -12,12 +12,14 @@ import shutil
 import sys
 from urllib2 import urlopen, URLError, HTTPError, Request
 from urlparse import urlparse
-from wand.image import Image
-from wand.color import Color
 
 TEMP_DIR = '/tmp/podcast2video/'
 
 IMAGE_REGEX = re.compile('https?:\/\/.*?\.(png|jpg)')
+
+# Expand image canvas to 1920x1080 with a black background.
+#   convert PODCAST_ART.png -background black -gravity center -extent 1920x1080 RESIZED_PODCAST_ART.png
+CMD_RESIZE_IMAGE = 'convert %s -background black -gravity center -extent 1920x1080 %s'
 
 # Make a silent video out of the PNG that is the length of the podcast audio:
 #    ffmpeg -loop 1 -i PODCAST_ART.png -c:v libx264 -t PODCAST_LENGTH_SECONDS -pix_fmt yuv420p SILENT.mp4
@@ -55,25 +57,23 @@ def convert_podcast(podcast_url, podcast_image_url, podcast_length, output_dir):
     :param podcast_image_url: URL of the podcast image to download
     :param podcast_length: length of the podcast in seconds
     """
+    if podcast_image_url == '':
+        podcast_image_url = 'http://www.onepeterfive.com/wp-content/uploads/2016/10/E38-2.png'
+
     podcast_file_name = podcast_url.split('/')[-1]
     podcast_image_file_name = podcast_image_url.split('/')[-1]
     video_file_name = podcast_file_name.split('.mp3')[0] + '.mp4'
 
     # if the video doesn't already exist, download the files and convert
     if not os.path.exists(output_dir + video_file_name):
-
+            
         img_download_path = TEMP_DIR + podcast_image_file_name
         img_resized_path = TEMP_DIR + 'resized_' + podcast_image_file_name
         print 'Downloading podcast artwork "%s"' % (podcast_image_url)
         download_file( podcast_image_url, img_download_path )
 
-        # Up-size the image to 720p by expanding the canvas and filling with white
-        with Image(width=1280, height=720, background=Color('white')) as bg_img:
-            with Image(filename=img_download_path) as fg_img:
-                left_pos = (bg_img.width - fg_img.width) / 2
-                top_pos = (bg_img.height - fg_img.height) / 2
-                bg_img.composite(fg_img, left=left_pos, top=top_pos)
-            bg_img.save(filename=img_resized_path)
+        # Up-size the image to 1080p by expanding the canvas and filling with white
+        os.system(CMD_RESIZE_IMAGE % (img_download_path, img_resized_path))
 
         print 'Downloading podcast "%s"' % (podcast_url)
         download_file( podcast_url, TEMP_DIR + podcast_file_name )
