@@ -22,15 +22,14 @@ This worked great, but it was messy, a pain to use for non-developers, required
 the installation of both ImageMagick and `ffmpeg` via Homebrew or similar, etc.
 
 So I decided to make a more generic version. I aim to make this PyPi compatible,
-as my first somewhat serious python project. I've eliminated the need to install
-ImageMagick, but not `ffmpeg`. I'm currently evaluating various ffmpeg-like
-Python packages, but I'm not there yet.
+as my first somewhat serious python project. Two current external dependencies
+are Imagemagick and ffmpeg.
 
 This is very early software. Use with caution. This has only ever been tested on
-MacOS 10.9. Test this on your local machine  by first installing `ffmpeg` with
-homebrew::
+MacOS 10.9-10.13. Test this on your local machine  by first installing the
+dependencies with homebrew::
 
-    brew install ffmpeg
+    brew install ffmpeg imagemagick
 
 Then checking out this repo, and installing through pip locally::
 
@@ -40,6 +39,7 @@ Then try grabbing the latest episode of a podcast::
 
     podcast2video http://feeds.theincomparable.com/robot
 
-Robot Or Not chosen because it's really short, so the encoding is fast.
+(Robot Or Not chosen because it's really short, so the encoding is fast. It's
+also a great podcast.)
 
 .. _Cortex: https://www.relay.fm/cortex
