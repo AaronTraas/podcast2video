@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import sys
+from bs4 import BeautifulSoup
 from urllib2 import urlopen, URLError, HTTPError, Request
 from urlparse import urlparse
 
@@ -66,7 +67,7 @@ def convert_podcast(podcast_url, podcast_image_url, podcast_length, output_dir):
 
     # if the video doesn't already exist, download the files and convert
     if not os.path.exists(output_dir + video_file_name):
-            
+
         img_download_path = TEMP_DIR + podcast_image_file_name
         img_resized_path = TEMP_DIR + 'resized_' + podcast_image_file_name
         print 'Downloading podcast artwork "%s"' % (podcast_image_url)
@@ -111,6 +112,13 @@ def process_entry(entry, output_dir):
     if entry.has_key('image'):
         podcast_image_url = entry.image.href
     else:
+        for content in entry.content:
+            soup = BeautifulSoup(content.value, 'html.parser')
+            img = soup.find('img')
+            if(img):
+                podcast_image_url = img['src'];
+
+    if podcast_image_url == '':
         for content in entry.content:
             imgs = IMAGE_REGEX.search( content.value )
             if imgs:
