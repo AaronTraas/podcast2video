@@ -1,6 +1,5 @@
 #!/usr/bin/python
-"""This module illustrates how to write your docstring in OpenAlea
-and other projects related to OpenAlea."""
+"""Utilities to convert a podcast given an RSS feed from MP3 to video."""
 
 __license__   = 'LGPLv3'
 __docformat__ = 'reStructuredText'
@@ -10,13 +9,10 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 from bs4 import BeautifulSoup
 from urllib2 import urlopen, URLError, HTTPError, Request
 from urlparse import urlparse
-
-TEMP_DIR = '/tmp/podcast2video/'
-
-IMAGE_REGEX = re.compile('https?:\/\/.*?\.(png|jpg)')
 
 # Expand image canvas to 1920x1080 with a black background.
 #   convert PODCAST_ART.png -background black -gravity center -extent 1920x1080 RESIZED_PODCAST_ART.png
@@ -52,14 +48,14 @@ def download_file(url, path):
     else:
         print "Already downloaded %s" % path
 
-def convert_podcast(podcast_url, podcast_image_url, podcast_length, output_dir):
+def convert_podcast(feed_name, podcast_url, podcast_image_url, podcast_length, output_dir, temp_dir):
     """Convert a podcast from a given URL to a video file
     :param podcast_url: URL of the podcast file to download
     :param podcast_image_url: URL of the podcast image to download
     :param podcast_length: length of the podcast in seconds
     """
     if podcast_image_url == '':
-        podcast_image_url = 'http://www.onepeterfive.com/wp-content/uploads/2016/10/E38-2.png'
+        podcast_image_url = 'http://fpoimg.com/1920x1080?text=' + feed_name
 
     podcast_file_name = podcast_url.split('/')[-1]
     podcast_image_file_name = podcast_image_url.split('/')[-1]
@@ -68,8 +64,8 @@ def convert_podcast(podcast_url, podcast_image_url, podcast_length, output_dir):
     # if the video doesn't already exist, download the files and convert
     if not os.path.exists(output_dir + video_file_name):
 
-        img_download_path = TEMP_DIR + podcast_image_file_name
-        img_resized_path = TEMP_DIR + 'resized_' + podcast_image_file_name
+        img_download_path = temp_dir + podcast_image_file_name
+        img_resized_path = temp_dir + 'resized_' + podcast_image_file_name
         print 'Downloading podcast artwork "%s"' % (podcast_image_url)
         download_file( podcast_image_url, img_download_path )
 
@@ -77,21 +73,21 @@ def convert_podcast(podcast_url, podcast_image_url, podcast_length, output_dir):
         os.system(CMD_RESIZE_IMAGE % (img_download_path, img_resized_path))
 
         print 'Downloading podcast "%s"' % (podcast_url)
-        download_file( podcast_url, TEMP_DIR + podcast_file_name )
+        download_file( podcast_url, temp_dir + podcast_file_name )
 
         # If the silent video has not already been created, render it
-        if not os.path.exists(TEMP_DIR + video_file_name):
-            command = CMD_CREATE_VIDEO % (img_resized_path, podcast_length, TEMP_DIR + video_file_name)
+        if not os.path.exists(temp_dir + video_file_name):
+            command = CMD_CREATE_VIDEO % (img_resized_path, podcast_length, temp_dir + video_file_name)
             print(command)
             os.system(command)
 
         # Add audio to silent video
-        command = CMD_ADD_AUDIO % (TEMP_DIR + video_file_name, TEMP_DIR + podcast_file_name, output_dir + video_file_name)
+        command = CMD_ADD_AUDIO % (temp_dir + video_file_name, temp_dir + podcast_file_name, output_dir + video_file_name)
         print(command)
         os.system(command)
 
-def process_entry(entry, output_dir):
-    """process an entry fromt he feed. We're extracting the podcast URL, podcast
+def process_entry(feed_name, entry, output_dir, temp_dir):
+    """process an entry from the feed. We're extracting the podcast URL, podcast
     image URL, and length of the podcast
     :param entry: entry in a podcast RSS feed
     """
@@ -118,33 +114,39 @@ def process_entry(entry, output_dir):
             if(img):
                 podcast_image_url = img['src'];
 
-    if podcast_image_url == '':
-        for content in entry.content:
-            imgs = IMAGE_REGEX.search( content.value )
-            if imgs:
-                podcast_image_url = imgs.group()
-
-    convert_podcast(podcast_url, podcast_image_url, podcast_length, output_dir)
+    convert_podcast(feed_name, podcast_url, podcast_image_url, podcast_length, output_dir, temp_dir)
 
 def process_feed(feed_url, process_all):
-    # parse feed
-    parsed = feedparser.parse(feed_url)
+    """process an RSS feed, converting podcasts in the feed from audio to video
+    :param feed_url: URL of the RSS feed
+    :param process_all: if true, process entire feed. Otherwise,
+                        only process the latest entry in the feed.
+    """
 
-    # Create output directory from feed name.
-    feed_name = parsed['feed']['title'].replace(' ', '_')
-    output_dir = './' + feed_name + '/'
-    for create_dir in [TEMP_DIR, output_dir]:
-        if not os.path.exists(create_dir):
-            os.makedirs(create_dir)
+    try:
+        # Create temporary directory. All file writes, until the very end,
+        # will happen in this directory, so that no matter what we do, it
+        # won't hose existing stuff.
+        temp_dir = tempfile.mkdtemp("podcast2video") + '/'
 
-    # grab entries from feed and process them
-    if process_all == True:
-        print 'Processing all podcasts from feed'
-        for entry in parsed.entries:
-            process_entry(entry, output_dir)
-    else:
-        print 'Processing latest podcast from feed'
-        process_entry(parsed.entries[0], output_dir)
+        # parse feed
+        parsed = feedparser.parse(feed_url)
 
-    # delete temp directory when we're done. Cleaning up is a good thing.
-    shutil.rmtree(TEMP_DIR)
+        # Create output directory from feed name.
+        feed_name = parsed['feed']['title'].replace(' ', '_')
+        output_dir = './' + feed_name + '/'
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        # grab entries from feed and process them
+        if process_all == True:
+            print 'Processing all podcasts from feed'
+            for entry in parsed.entries:
+                process_entry(feed_name, entry, output_dir, temp_dir)
+        else:
+            print 'Processing latest podcast from feed'
+            process_entry(feed_name, parsed.entries[0], output_dir, temp_dir)
+
+    finally:
+        # Ensure that temporary directory gets deleted no matter what
+        shutil.rmtree(temp_dir)
