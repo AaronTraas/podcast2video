@@ -13,9 +13,14 @@ from bs4 import BeautifulSoup
 from urllib2 import urlopen, URLError, HTTPError, Request
 from urlparse import urlparse
 
-# Expand image canvas to 1920x1080 with a black background.
-#   convert PODCAST_ART.png -background black -gravity center -extent 1920x1080 RESIZED_PODCAST_ART.png
-CMD_RESIZE_IMAGE = 'convert %s -background black -gravity center -extent 1920x1080 %s'
+# If larger than 1280x720, resize down to fit in 1280x720, and fill background
+# with black if aspect ratio is different
+#   convert 1P5-PODCAST_ART.png -resize 1280x720\> -background black -gravity center -extent 1280x720 RESIZED_PODCAST_ART.png
+CMD_RESIZE_IMAGE = 'convert %s -resize 1280x720\> -background black -gravity center -extent 1280x720 %s'
+
+# Expand image canvas to 1280x720 with a black background.
+#   convert PODCAST_ART.png -background black -gravity center -extent 1280x720 RESIZED_PODCAST_ART.png
+CMD_FILL_IMAGE = 'convert %s  %s'
 
 # Make a silent video out of the PNG that is the length of the podcast audio:
 #    ffmpeg -loop 1 -i PODCAST_ART.png -c:v libx264 -t PODCAST_LENGTH_SECONDS -pix_fmt yuv420p SILENT.mp4
